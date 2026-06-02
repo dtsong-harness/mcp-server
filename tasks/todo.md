@@ -1,5 +1,98 @@
 # Harness MCP Server — Task Tracking
 
+## Version Bump 3.1.1 (2026-06-01)
+- [x] Identify release metadata fields pinned to the previous version
+- [x] Update package and manifest versions to 3.1.1
+- [x] Update release metadata regression test
+- [x] Run verification
+
+### Plan
+- Keep this as a metadata-only patch release bump.
+- Update `package.json`, root `manifest.json`, `mcp-directory/manifest.json`, and the release metadata test expectation.
+- Do not change dependency versions or generated lockfile data unless verification shows the package manager requires it.
+
+### Review
+- Updated `package.json`, root `manifest.json`, and `mcp-directory/manifest.json` to `3.1.1`.
+- Updated `tests/release-metadata.test.ts` so package and bundle manifest versions remain locked together for the `3.1.1` release.
+- Verification passed: `pnpm vitest run tests/release-metadata.test.ts` and `pnpm typecheck`.
+
+## Version Bump 3.1.0 (2026-05-29)
+- [x] Identify release metadata fields pinned to the previous version
+- [x] Update package and manifest versions to 3.1.0
+- [x] Update release metadata regression test
+- [x] Run verification
+- [x] Open PR
+
+### Plan
+- Keep this as a metadata-only release bump.
+- Update `package.json`, root `manifest.json`, `mcp-directory/manifest.json`, and the release metadata test expectation.
+- Do not change dependency versions or generated lockfile data unless verification shows the package manager requires it.
+
+### Review
+- Updated `package.json`, root `manifest.json`, and `mcp-directory/manifest.json` to `3.1.0`.
+- Updated `tests/release-metadata.test.ts` so package and bundle manifest versions remain locked together for the `3.1.0` release.
+- Verification passed: `pnpm vitest run tests/release-metadata.test.ts` and `pnpm typecheck`.
+
+## PR 282 IaCM Activity Resource Changes (2026-05-29)
+- [x] Restore engineer's activity-scoped resource change endpoint
+- [x] Keep IaCM default-enabled and Ansible opt-in on current main
+- [x] Update generated docs plus config/Gemini guidance
+- [x] Run focused registry, build, and docs checks
+- [x] Push updated PR branch
+
+### Plan
+- Rebuild PR 282 on current `origin/main` so the change includes recent Ansible docs and registry updates.
+- Preserve the intended IaCM activity resource-changes contract: `/activities/{activityId}/resource-changes` with required `workspace_id`.
+- Preserve `operationPolicy` on the endpoint and keep IaCM default-enabled.
+- Update docs that previously described IaCM as opt-in.
+
+### Review
+- Updated `iacm_activity_resource_change` to use the activity-scoped endpoint and required `workspace_id` query mapping.
+- Updated IaCM registry tests for default-on loading and activity-scoped dispatch.
+- Updated README, `.env.example`, and Gemini docs so IaCM is documented as default-enabled and Ansible remains the only opt-in toolset.
+- Verification passed: `pnpm vitest run tests/registry/iacm.test.ts tests/registry/ansible.test.ts tests/registry/registry.test.ts tests/registry/structural-validation.test.ts`, `pnpm build`, and `pnpm docs:check`.
+
+## Version Bump 3.0.9 (2026-05-28)
+- [x] Identify release metadata fields pinned to the previous version
+- [x] Update package and manifest versions to 3.0.9
+- [x] Update release metadata regression test
+- [x] Run verification
+- [x] Open PR
+
+### Plan
+- Keep this as a metadata-only patch release bump.
+- Update `package.json`, root `manifest.json`, `mcp-directory/manifest.json`, and the release metadata test expectation.
+- Do not change dependency versions or generated lockfile data unless verification shows the package manager requires it.
+
+### Review
+- Updated `package.json`, root `manifest.json`, and `mcp-directory/manifest.json` to `3.0.9`.
+- Updated `tests/release-metadata.test.ts` so the package and bundle manifest versions remain locked together for the `3.0.9` patch release.
+- Verification passed: `pnpm vitest run tests/release-metadata.test.ts` and `pnpm typecheck`.
+
+## SAT Account Extraction (2026-05-28)
+- [x] Confirm SAT failure mode from config and session header handling
+- [x] Allow account ID extraction from SAT tokens
+- [x] Let multi-user sessions derive account ID from PAT/SAT when possible
+- [x] Update focused tests and user-facing guidance
+- [x] Run focused and full verification
+- [x] Document review results and lesson
+
+### Plan
+- Keep the token parser simple: account ID is the second dot-delimited segment for supported Harness API key prefixes.
+- Extend supported account-scoped prefixes from only `pat` to `pat` and `sat`, case-insensitively.
+- Preserve explicit account-ID overrides and continue rejecting mismatches when the token embeds an account ID.
+- Update single-user config tests, multi-user session header tests, HTTP initialize coverage, and docs.
+- Keep the PR scoped to the SAT bug.
+
+### Review
+- Updated `extractAccountIdFromToken` so supported account-scoped API key prefixes are `pat` and `sat`, case-insensitively.
+- Updated single-user config handling so `HARNESS_ACCOUNT_ID` is derived from SATs with an embedded account segment.
+- Updated multi-user HTTP session handling so `x-harness-account-id` can be omitted when `x-harness-api-key` embeds the account ID; explicit mismatched account headers still fail.
+- Updated focused tests for config parsing, session header merging, and HTTP initialize behavior.
+- Updated README, manifests, `.env.example`, and Gemini docs from PAT-only account extraction to PAT/SAT account extraction.
+- Verified the customer-provided SAT sample was not written into the repo.
+- Verification passed: `pnpm vitest run tests/config.test.ts tests/utils/session-headers.test.ts tests/integration/http-transport.test.ts`, `pnpm typecheck`, and `pnpm test` outside the sandbox for local HTTP port binding.
+
 ## Jira Feature Request Spec Automation (2026-05-25)
 - [x] Inspect current automation registry and saved schedules
 - [x] Create Jira Feature Request spec drafting automation

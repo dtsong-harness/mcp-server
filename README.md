@@ -1,6 +1,6 @@
 ## Harness MCP Server 2.0
 
-An MCP (Model Context Protocol) server that gives AI agents full access to the Harness.io platform through 11 consolidated tools and 195 resource types.
+An MCP (Model Context Protocol) server that gives AI agents full access to the Harness.io platform through 11 consolidated tools and 206 resource types.
 
 ## Why Use This MCP Server
 
@@ -8,12 +8,12 @@ Most MCP servers map one tool per API endpoint. For a platform as broad as Harne
 
 This server is built differently:
 
-- **11 tools, 195 resource types.** A registry-based dispatch system routes `harness_list`, `harness_get`, `harness_create`, etc. to any Harness resource — pipelines, services, environments, orgs, projects, feature flags, cost data, and more. The LLM picks from 11 tools instead of hundreds.
-- **Full platform coverage.** 32 default toolsets spanning CI/CD, GitOps, Feature Flags, Cloud Cost Management, Security Testing, Chaos Engineering, Database DevOps, Internal Developer Portal, Software Supply Chain, Governance, Service Overrides, Visualizations, and more. Opt-in IaCM coverage is available when you need Terraform workspace and module data.
+- **11 tools, 206 resource types.** A registry-based dispatch system routes `harness_list`, `harness_get`, `harness_create`, etc. to any Harness resource — pipelines, services, environments, orgs, projects, feature flags, cost data, and more. The LLM picks from 11 tools instead of hundreds.
+- **Full platform coverage.** 33 default toolsets spanning CI/CD, GitOps, Feature Flags, Cloud Cost Management, Security Testing, Chaos Engineering, Database DevOps, Internal Developer Portal, Software Supply Chain, Infrastructure as Code Management, Governance, Service Overrides, Visualizations, and more. Opt-in Ansible coverage is available when you need inventory and playbook data.
 - **Multi-project workflows out of the box.** Agents discover organizations and projects dynamically — no hardcoded env vars needed. Ask "show failed executions across all projects" and the agent can navigate the full account hierarchy.
 - **32 prompt templates.** Pre-built prompts for common workflows: build & deploy apps end-to-end, debug failed pipelines, review DORA metrics, triage vulnerabilities, optimize cloud costs, audit access control, plan feature flag rollouts, review pull requests, approve pending pipelines, and more.
 - **Works everywhere.** Stdio transport for local clients (Claude Desktop, Cursor, Windsurf), HTTP transport for remote/shared deployments, Docker and Kubernetes ready.
-- **Zero-config start.** Just provide a Harness API key. Account ID is auto-extracted from PAT tokens, org/project defaults are optional, and toolset filtering lets you expose only what you need.
+- **Zero-config start.** Just provide a Harness API key. Account ID is auto-extracted from PAT and SAT tokens, org/project defaults are optional, and toolset filtering lets you expose only what you need.
 - **Extensible by design.** Adding a new Harness resource means adding a declarative data file — no new tool registration, no schema changes, no prompt updates.
 
 ## Prerequisites
@@ -22,7 +22,7 @@ Before installing or running the server, you need a Harness API key:
 
 1. Log in to your [Harness account](https://app.harness.io)
 2. Go to **My Profile** → **API Keys** → **+ New API Key**
-3. Create a new **Token** under the API key — this generates a PAT in the format `pat.<accountId>.<tokenId>.<secret>`
+3. Create a new **Token** under the API key — this generates a PAT or SAT in the format `<prefix>.<accountId>.<tokenId>.<secret>`
 4. Save the token somewhere secure — you'll need it in the next step
 
 > For detailed instructions, see the [Harness API Quickstart](https://developer.harness.io/docs/platform/automation/api/api-quickstart/).
@@ -55,7 +55,7 @@ HARNESS_API_KEY=pat.xxx npx harness-mcp-v2
 HARNESS_API_KEY=pat.xxx npx harness-mcp-v2 http --port 8080
 ```
 
-> **Note:** The account ID is auto-extracted from PAT tokens (`pat.<accountId>.<tokenId>.<secret>`), so `HARNESS_ACCOUNT_ID` is only needed for non-PAT API keys.
+> **Note:** The account ID is auto-extracted from PAT and SAT tokens (`pat.<accountId>...` or `sat.<accountId>...`), so `HARNESS_ACCOUNT_ID` is only needed for API keys without an embedded account segment.
 
 ### Option 2: Global Install
 
@@ -141,7 +141,7 @@ Operational constraints in HTTP mode:
 Set `HARNESS_MCP_MODE=multi-user` for shared HTTP deployments where each client authenticates as a different Harness user. In this mode:
 
 - `HARNESS_API_KEY` must **not** be set in the server config — the server holds no Harness credentials.
-- Each session must provide `x-harness-api-key` and `x-harness-account-id` headers on the `initialize` request. Sessions without these headers are rejected with a 401.
+- Each session must provide `x-harness-api-key` on the `initialize` request. `x-harness-account-id` is required only when the API key does not embed an account segment.
 - Sessions may also provide `x-harness-org` and `x-harness-project` headers to set default scope for that session.
 - The Harness API key flows through to every Harness API call for that session, so the audit trail in Harness reflects the real user.
 - `HARNESS_MCP_AUTH_TOKEN` is independent and can still be used as an additional transport-layer gate.
@@ -151,7 +151,8 @@ Set `HARNESS_MCP_MODE=multi-user` for shared HTTP deployments where each client 
 curl http://localhost:3000/health
 
 # MCP initialize request (capture mcp-session-id response header)
-# In multi-user mode, x-harness-api-key and x-harness-account-id are required on initialize.
+# In multi-user mode, x-harness-api-key is required on initialize.
+# x-harness-account-id is needed only for API keys without an embedded account segment.
 curl -i -X POST http://localhost:3000/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
@@ -517,9 +518,9 @@ The server automatically loads environment variables from a `.env` file in the p
 
 | Variable                    | Required | Default                     | Description                                                                                                                                                                                                                                           |
 | --------------------------- | -------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `HARNESS_MCP_MODE`          | No       | `single-user`               | Deployment mode: `single-user` (API key in config, used for all sessions) or `multi-user` (HTTP only, per-session credentials via `x-harness-api-key` and `x-harness-account-id` headers)                                                            |
+| `HARNESS_MCP_MODE`          | No       | `single-user`               | Deployment mode: `single-user` (API key in config, used for all sessions) or `multi-user` (HTTP only, per-session credentials via `x-harness-api-key` and optional `x-harness-account-id` headers)                                                   |
 | `HARNESS_API_KEY`           | Yes*     | --                          | Harness personal access token or service account token. Required in `single-user` mode. Must NOT be set in `multi-user` mode                                                                                                                          |
-| `HARNESS_ACCOUNT_ID`        | No       | *(from PAT)*                | Harness account identifier. Auto-extracted from PAT tokens in single-user mode; sessions provide their own via `x-harness-account-id` in multi-user mode                                                                                              |
+| `HARNESS_ACCOUNT_ID`        | No       | *(from PAT/SAT)*            | Harness account identifier. Auto-extracted from PAT/SAT tokens in single-user mode; multi-user sessions can provide their own via `x-harness-account-id` when the API key does not embed one                                                          |
 | `HARNESS_BASE_URL`          | No       | `https://app.harness.io`    | Harness API/UI base URL for local stdio or self-hosted HTTP deployments. Set this to environments such as `https://harness0.harness.io` when running the server yourself. It does not affect the managed `https://mcp.harness.io/mcp` hosted endpoint |
 | `HARNESS_ORG`               | No       | --                          | Organization ID. Used when `org_id` is not specified per tool call. If omitted, `org_id` must be provided explicitly. Agents can also discover orgs dynamically via `harness_list(resource_type="organization")`                                      |
 | `HARNESS_PROJECT`           | No       | --                          | Project ID. Used when `project_id` is not specified per tool call. Agents can also discover projects dynamically via `harness_list(resource_type="project")`                                                                                          |
@@ -1040,7 +1041,7 @@ Harness pipelines can be stored in three ways:
 
 ## Resource Types
 
-195 resource types organized across 32 toolsets. Each resource type supports a subset of CRUD operations and optional execute actions.
+206 resource types organized across 33 toolsets. Each resource type supports a subset of CRUD operations and optional execute actions.
 
 ### Platform
 
@@ -1194,7 +1195,7 @@ Template operations use the Harness Template service paths (`/template/api/templ
 
 | Resource Type                     | List | Get | Create | Update | Delete | Execute Actions |
 | --------------------------------- | ---- | --- | ------ | ------ | ------ | --------------- |
-| `database_schema`                 | x    | x   |        |        |        |                 |
+| `database_schema`                 | x    | x   | x      | x      | x      |                 |
 | `database_instance`               | x    | x   |        |        |        |                 |
 | `database_snapshot_object`        | x    | x   |        |        |        |                 |
 | `database_llm_authoring_pipeline` |      | x   |        |        |        |                 |
@@ -1509,15 +1510,17 @@ Inline PNG chart visualizations rendered from Harness data. These are metadata-o
 
 ## Toolset Filtering
 
-By default, 32 of 33 toolsets are enabled. The `iacm` toolset is opt-in because Harness IaCM APIs are project-scoped and add Terraform workspace/module concepts that many users do not need. The `ai-evals` toolset is default-enabled.
+By default, 33 of 34 toolsets are enabled. One toolset is opt-in and excluded from the defaults:
+
+- **`ansible`** — Harness Ansible (inventories, playbooks, hosts, activity). Opt-in because it is project-scoped and adds concepts many users do not need.
 
 ### Adding toolsets with `+` prefix
 
 Use the `+` prefix to explicitly include opt-in toolsets alongside all defaults:
 
 ```bash
-# Explicitly include IaCM alongside all defaults
-HARNESS_TOOLSETS=+iacm
+# Explicitly include Ansible alongside all defaults
+HARNESS_TOOLSETS=+ansible
 ```
 
 ### Removing default toolsets
@@ -1532,8 +1535,8 @@ HARNESS_TOOLSETS=-chaos,-ccm
 ### Combining + and -
 
 ```bash
-# Add IaCM, remove chaos
-HARNESS_TOOLSETS=+iacm,-chaos
+# Add Ansible, remove chaos
+HARNESS_TOOLSETS=+ansible,-chaos
 ```
 
 ### Explicit allowlist
@@ -1582,7 +1585,8 @@ Available toolset names:
 | `settings`              | setting                                                                                                                                                                                                                                                                                         |
 | `visualizations`        | visual_timeline, visual_stage_flow, visual_health_dashboard, visual_pie_chart, visual_bar_chart, visual_timeseries, visual_architecture                                                                                                                                                         |
 | `ai-evals`              | eval_dataset, eval_dataset_item, evaluation, eval_run, eval_run_item, eval_run_by_eval, eval_metric, eval_metric_set, eval_metric_set_entry, eval_suite, eval_suite_evaluation, eval_suite_run, eval_target, eval_model, eval_annotation, eval_analytics, eval_git_settings, eval_registry_item |
-| `iacm` *(opt-in)*       | iacm_workspace, iacm_resource, iacm_module, iacm_workspace_costs, iacm_activity_resource_change                                                                                                                                                                                                 |
+| `iacm`                  | iacm_workspace, iacm_resource, iacm_module, iacm_workspace_costs, iacm_activity_resource_change                                                                                                                                                                                                 |
+| `ansible` *(opt-in)*    | ansible_inventory, ansible_playbook, ansible_host, ansible_host_activity, ansible_activity                                                                                                                                                                                                      |
 
 
 ## Architecture
@@ -1600,8 +1604,8 @@ Available toolset names:
                           |
                  +--------v---------+
                 |    Registry       |  <-- Declarative resource definitions
-                |  32 Toolsets      |      (data files, not code)
-                |  195 Resource Types|
+                |  33 Toolsets      |      (data files, not code)
+                |  206 Resource Types|
                  +--------+---------+
                           |
                  +--------v---------+
@@ -1877,7 +1881,7 @@ The Harness MCP server pairs well with **[Harness Skills](https://github.com/har
 
 | Symptom                                                                          | Likely Cause                                                                                         | What to Do                                                                                                                           |
 | -------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `HARNESS_ACCOUNT_ID is required when the API key is not a PAT...`                | API key is not in PAT format (`pat.<accountId>.<tokenId>.<secret>`) so account ID cannot be inferred | Set `HARNESS_ACCOUNT_ID` explicitly                                                                                                  |
+| `HARNESS_ACCOUNT_ID is required when the API key does not include an account ID segment...` | API key is not in a supported account-scoped format (`pat.<accountId>...` or `sat.<accountId>...`) so account ID cannot be inferred | Set `HARNESS_ACCOUNT_ID` explicitly |
 | `Unknown transport: "..."` on startup                                            | Unsupported CLI transport arg                                                                        | Use `stdio` or `http` only                                                                                                           |
 | `Invalid HARNESS_TOOLSETS: ...` on startup                                       | One or more toolset names are not recognized                                                         | Use only names from [Toolset Filtering](#toolset-filtering) (exact match)                                                            |
 | HTTP `mcp-session-id header is required...`                                      | A session request was sent without session header                                                    | Send `initialize` first, then include `mcp-session-id` on `POST/GET/DELETE /mcp`                                                     |

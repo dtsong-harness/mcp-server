@@ -43,6 +43,7 @@ import { freezeToolset } from "./toolsets/freeze.js";
 import { overridesToolset } from "./toolsets/overrides.js";
 import { aiEvalsToolset } from "./toolsets/ai-evals.js";
 import { iacmToolset } from "./toolsets/iacm.js";
+import { ansibleToolset } from "./toolsets/ansible.js";
 
 const log = createLogger("registry");
 
@@ -152,6 +153,7 @@ const ALL_TOOLSETS: ToolsetDefinition[] = [
   overridesToolset,
   aiEvalsToolset,
   iacmToolset,
+  ansibleToolset,
 ];
 
 /** All available toolset names — used by docs generation to discover opt-in toolsets. */
@@ -685,7 +687,8 @@ export class Registry {
     // Validate required fields if bodySchema is defined.
     // When bodyWrapperKey is set, the bodyBuilder wraps user fields inside that
     // key (e.g. { project: { identifier, name } }), so we validate the inner object.
-    if (spec.bodySchema && body && typeof body === "object") {
+    // Skip validation when body is an array (e.g. Split API endpoints that expect raw JSON arrays).
+    if (spec.bodySchema && body && typeof body === "object" && !Array.isArray(body)) {
       const bodyRecord = body as Record<string, unknown>;
       const payload =
         spec.bodyWrapperKey &&
