@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+#
+# prepare-commit-msg shim.
+#
+# Enabling this repo's hooks sets core.hooksPath to .githooks, which shadows any
+# globally configured hooks dir (git uses one hooks path, not both). Some
+# environments install a global prepare-commit-msg (e.g. CI/agent commit-message
+# trailers). This shim re-invokes that global hook so enabling our pre-commit
+# does not silently disable it. When no global hook exists, this is a no-op.
+
+set -euo pipefail
+
+GLOBAL_HOOKS_DIR="$(git config --global core.hooksPath 2>/dev/null || true)"
+
+if [ -n "$GLOBAL_HOOKS_DIR" ] && [ -x "$GLOBAL_HOOKS_DIR/prepare-commit-msg" ]; then
+  exec "$GLOBAL_HOOKS_DIR/prepare-commit-msg" "$@"
+fi
+
+exit 0

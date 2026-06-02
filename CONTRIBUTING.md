@@ -15,6 +15,20 @@ pnpm install
 pnpm build
 ```
 
+`pnpm install` runs the `prepare` script, which points `core.hooksPath` at
+`.githooks` so the committed git hooks take effect. If you cloned without
+installing, or hooks are not firing, run `pnpm hooks:install` once.
+
+## Git Hooks
+
+A `pre-commit` hook keeps `README.md` in sync with the registry. The README
+carries generated counts (resource types, toolsets, prompts) that
+`pnpm docs:check` validates in CI by reading the compiled `build/` output. When
+you stage a change under `src/registry/`, `src/prompts/`, or to `README.md`, the
+hook rebuilds and runs the check; if the README is stale it blocks the commit
+and tells you to run `pnpm docs:generate`. Other commits skip the check and pay
+no build cost. Bypass intentionally with `git commit --no-verify`.
+
 ## Development Commands
 
 ```bash

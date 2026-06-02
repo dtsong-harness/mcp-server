@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+#
+# Pre-commit hook: keep README.md in sync with the registry.
+#
+# Why this exists: `pnpm docs:check` reads counts from build/ (the compiled
+# registry and prompt modules), not from src/. So a stale README only surfaces
+# in CI after a push. This hook catches the drift locally by rebuilding and
+# checking before the commit lands — but only when a file that can change the
+# counts is staged, so ordinary commits stay fast.
+#
+# Enable once per clone:  pnpm prepare   (or: git config core.hooksPath .githooks)
+#
+# It exits non-zero (blocking the commit) when README is stale, and tells you
+# to run `pnpm docs:generate`.
+
+set -euo pipefail
+
+# Only run when a count-affecting file is staged: the registry, the prompts,
+# or the README itself. Everything else commits without paying the build cost.
+if ! git diff --cached --name-only --diff-filter=ACMR \
+  | grep -qE '^(src/registry/|src/prompts/|README\.md$)'; then
+  exit 0
+fi
+
+# docs:check imports build/registry/index.js and counts build/prompts/*.js.
+# Rebuild first so the check reflects the staged source, not a stale build.
+# (Skipping this is the exact trap that let a stale count reach CI before.)
+echo "pre-commit: registry/prompts/README changed — rebuilding and checking docs..."
+
+if ! pnpm -s build; then
+  echo "pre-commit: build failed; cannot verify README. Fix the build, then recommit." >&2
+  exit 1
+fi
+
+if ! pnpm -s docs:check; then
+  cat >&2 <<'EOF'
+
+pre-commit: README.md is out of sync with the registry.
+  Run:  pnpm docs:generate
+  Then: git add README.md && recommit.
+
+(To bypass intentionally: git commit --no-verify)
+EOF
+  exit 1
+fi
+
+echo "pre-commit: README is in sync."
